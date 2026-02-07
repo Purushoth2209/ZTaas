@@ -2,12 +2,20 @@ import { forwardRequest } from '../proxy/http.proxy.js';
 import { getBackendTarget } from '../config/config.js';
 import { log } from '../utils/logger.js';
 
+const sanitizeHeaders = (headers) => {
+  const sanitized = { ...headers };
+  if (sanitized.authorization) {
+    sanitized.authorization = '[REDACTED]';
+  }
+  return sanitized;
+};
+
 export const proxyRequest = async (path, method, headers, body, query) => {
   const backendUrl = getBackendTarget();
   const targetUrl = `${backendUrl}${path}`;
 
   log(`[INCOMING] ${method} ${path}`);
-  log(`[INCOMING] Headers: ${JSON.stringify(headers)}`);
+  log(`[INCOMING] Headers: ${JSON.stringify(sanitizeHeaders(headers))}`);
   if (body && Object.keys(body).length > 0) {
     log(`[INCOMING] Body: ${JSON.stringify(body)}`);
   }
@@ -20,7 +28,7 @@ export const proxyRequest = async (path, method, headers, body, query) => {
   const response = await forwardRequest(targetUrl, method, headers, body, query);
 
   log(`[RESPONSE] Status: ${response.status}`);
-  log(`[RESPONSE] Headers: ${JSON.stringify(response.headers)}`);
+  log(`[RESPONSE] Headers: ${JSON.stringify(sanitizeHeaders(response.headers))}`);
   if (response.data) {
     log(`[RESPONSE] Body: ${JSON.stringify(response.data)}`);
   }

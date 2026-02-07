@@ -171,3 +171,53 @@ curl -X POST http://localhost:8081/admin/config/enforcement \
 - No role-based authorization is performed at the gateway level
 - Backend services continue to validate JWTs and enforce authorization
 - This is a defense-in-depth approach, not a replacement for backend security
+
+## Authorization Enforcement (STEP 2)
+
+The gateway now enforces role-based authorization for specific endpoints.
+
+### Authorization Rules
+
+Hardcoded rules enforced by the gateway:
+
+**`/orders`**
+- `GET` → allowed roles: `admin`, `user`
+- `POST` → allowed roles: `admin` only
+
+**`/users`**
+- `GET` → allowed roles: `admin` only
+
+**All other paths**
+- Allowed by default (no authorization check)
+
+### Enforcement Behavior
+
+Authorization is enforced based on the `enforcementMode`:
+
+**observe mode**:
+- Authorization failures are logged but requests are forwarded to backend
+- Log format: `BLOCKED reason=forbidden role=user method=POST path=/orders`
+
+**enforce mode**:
+- Authorization failures return HTTP 403 Forbidden
+- Response body:
+  ```json
+  {
+    "error": "Forbidden",
+    "message": "Access denied for this role"
+  }
+  ```
+
+### Middleware Order
+
+Request processing flow:
+1. Identity middleware (JWT verification)
+2. Authorization middleware (role-based access control)
+3. Proxy to backend
+
+### Important Notes
+
+- Authorization only applies when JWT is present and valid
+- Backend authorization remains unchanged (double enforcement)
+- Rules are hardcoded in `authorization.middleware.js`
+- No configuration UI or database required
