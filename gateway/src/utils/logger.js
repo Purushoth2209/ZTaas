@@ -1,3 +1,4 @@
 export const log = (message) => {
-  console.log(`[${new Date().toISOString()}] ${message}`);
+  const istTime = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+  console.log(`[${istTime}] ${message}`);
 };
