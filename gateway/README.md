@@ -221,3 +221,151 @@ Request processing flow:
 - Backend authorization remains unchanged (double enforcement)
 - Rules are hardcoded in `authorization.middleware.js`
 - No configuration UI or database required
+
+## Authorization Policies (STEP 3)
+
+The gateway now supports runtime-configurable authorization policies via admin APIs.
+
+### Policy Model
+
+Policies are defined as JSON data:
+
+```json
+{
+  "policies": [
+    {
+      "id": "orders-get",
+      "path": "/orders",
+      "methods": ["GET"],
+      "roles": ["admin", "user"]
+    },
+    {
+      "id": "orders-post",
+      "path": "/orders",
+      "methods": ["POST"],
+      "roles": ["admin"]
+    },
+    {
+      "id": "users-get",
+      "path": "/users",
+      "methods": ["GET"],
+      "roles": ["admin"]
+    }
+  ]
+}
+```
+
+### Policy Evaluation Rules
+
+- Path matching is exact (no regex)
+- Method matching is explicit
+- If no policy matches → allow by default
+- If policy matches but role not allowed → deny (403)
+
+### Admin API - Policy Management
+
+**Get all policies:**
+```bash
+curl http://localhost:8081/admin/policies
+```
+
+Response:
+```json
+{
+  "policies": [
+    {
+      "id": "orders-get",
+      "path": "/orders",
+      "methods": ["GET"],
+      "roles": ["admin", "user"]
+    }
+  ]
+}
+```
+
+**Set policies (replaces all existing):**
+```bash
+curl -X POST http://localhost:8081/admin/policies \
+  -H "Content-Type: application/json" \
+  -d '{
+    "policies": [
+      {
+        "id": "orders-get",
+        "path": "/orders",
+        "methods": ["GET"],
+        "roles": ["admin", "user"]
+      },
+      {
+        "id": "orders-post",
+        "path": "/orders",
+        "methods": ["POST"],
+        "roles": ["admin"]
+      },
+      {
+        "id": "users-get",
+        "path": "/users",
+        "methods": ["GET"],
+        "roles": ["admin"]
+      }
+    ]
+  }'
+```
+
+Response:
+```json
+{
+  "message": "Policies updated",
+  "count": 3
+}
+```
+
+**Clear all policies:**
+```bash
+curl -X DELETE http://localhost:8081/admin/policies
+```
+
+Response:
+```json
+{
+  "message": "All policies cleared"
+}
+```
+
+### Authorization Logging
+
+Every authorization decision is logged:
+
+```
+AUTHZ decision=allow policy=orders-get role=admin method=GET path=/orders
+AUTHZ decision=deny policy=orders-post role=user method=POST path=/orders
+AUTHZ decision=allow policy=none role=user method=GET path=/products
+```
+
+Log format:
+- `decision`: allow | deny
+- `policy`: policy ID or "none" if no match
+- `role`: user role or "none"
+- `method`: HTTP method
+- `path`: request path
+
+### Enforcement Behavior
+
+**observe mode**:
+- Authorization failures are logged but requests forwarded to backend
+
+**enforce mode**:
+- Authorization failures return HTTP 403 Forbidden
+- Response body:
+  ```json
+  {
+    "error": "Forbidden",
+    "message": "Access denied for this role"
+  }
+  ```
+
+### Important Notes
+
+- Policies are stored in-memory (reset on restart)
+- Changes take effect immediately (no restart required)
+- No authentication required for admin APIs (for now)
+- Backend authorization remains unchanged (double enforcement)

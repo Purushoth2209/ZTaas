@@ -2,7 +2,13 @@ import { verifyJwt } from '../services/jwtVerification.service.js';
 import { log } from '../utils/logger.js';
 import { getJwtConfig } from '../services/config.service.js';
 
+const PUBLIC_PATHS = ['/login'];
+
 export const identityMiddleware = async (req, res, next) => {
+  if (PUBLIC_PATHS.includes(req.path)) {
+    return next();
+  }
+
   const authHeader = req.headers.authorization;
   const { enforcementMode } = getJwtConfig();
 
