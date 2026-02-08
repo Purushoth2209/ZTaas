@@ -1,28 +1,20 @@
-import { isGatewayAuthz } from '../config/authz.config.js';
 import { log } from '../utils/logger.js';
 
-export const authzMiddleware = (req, res, next) => {
-  let authzIdentity = null;
-  let source = 'jwt';
-
-  if (isGatewayAuthz() && req.gatewayIdentity) {
-    authzIdentity = req.gatewayIdentity;
-    source = 'gateway';
-  } else if (req.user) {
-    authzIdentity = req.user;
-    source = 'jwt';
-    
-    if (isGatewayAuthz()) {
-      log(`AUTHZ_FALLBACK source=jwt reason=missing_gateway_identity path=${req.path}`);
-    }
+// Phase 3: Gateway is the sole authorization authority
+// Backend trusts gateway identity completely
+export const gatewayAuthorityMiddleware = (req, res, next) => {
+  // Gateway identity is REQUIRED
+  if (!req.gatewayIdentity) {
+    log(`MISSING_GATEWAY_IDENTITY method=${req.method} path=${req.path}`);
+    return res.status(401).json({ 
+      error: 'Unauthorized',
+      message: 'Gateway identity required'
+    });
   }
 
-  if (!authzIdentity) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  req.authzIdentity = authzIdentity;
-  req.authzSource = source;
+  // Trust gateway identity completely - no authorization checks
+  req.authzIdentity = req.gatewayIdentity;
+  req.authzAuthority = 'gateway';
   
   next();
 };

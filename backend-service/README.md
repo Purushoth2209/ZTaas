@@ -117,6 +117,220 @@ curl http://localhost:8081/orders \
 - ✅ JWKS endpoint for public key distribution
 - ✅ **STEP 4 — Phase 1: Gateway Trust (Observe Only)**
 - ✅ **STEP 4 — Phase 2: Gateway-Driven Authorization**
+- ✅ **STEP 4 — Phase 3: Gateway as Sole Authority**
+
+## STEP 4 — Phase 3: Gateway as Sole Authorization Authority
+
+### Overview
+
+**The backend is now a Zero Trust execution service.**
+
+The API Gateway is the **SINGLE AUTHORIZATION AUTHORITY**. The backend has NO authorization logic and trusts that any request reaching it has been authorized by the gateway.
+
+### Key Changes from Phase 2
+
+| Aspect | Phase 2 | Phase 3 |
+|--------|---------|----------|
+| Authorization authority | Configurable (JWT or Gateway) | Gateway ONLY |
+| Backend authorization logic | Exists (role checks) | REMOVED |
+| AUTHZ_SOURCE support | `jwt` or `gateway` | `gateway` only (enforced) |
+| Startup validation | None | Fails if not `gateway` |
+| JWT validation | Required | Optional (audit mode) |
+| Rollback | Change env var | Revert code |
+
+### Configuration
+
+**Required:**
+```bash
+AUTHZ_SOURCE=gateway  # Backend fails to start if not set
+```
+
+**Optional:**
+```bash
+JWT_VALIDATION_MODE=enforce  # Reject invalid JWTs (default)
+JWT_VALIDATION_MODE=audit    # Log JWT validation, don't block
+```
+
+### Startup Validation
+
+Backend validates configuration at startup:
+
+```
+========================================
+PHASE 3: Gateway as Sole Authority
+AUTHZ_SOURCE: gateway
+JWT_VALIDATION_MODE: enforce
+========================================
+```
+
+If `AUTHZ_SOURCE` is not `gateway`, backend **exits immediately**:
+
+```
+FATAL: AUTHZ_SOURCE must be 'gateway'. Current value: 'jwt'
+Phase 3 requires gateway as the sole authorization authority.
+[Process exits with code 1]
+```
+
+### Request Flow
+
+```
+1. Gateway verifies JWT
+2. Gateway enforces authorization policies
+3. Gateway injects trusted identity headers
+4. Backend validates gateway secret
+5. Backend validates JWT (optional audit mode)
+6. Backend requires gateway identity
+7. Controller executes business logic (NO authorization)
+```
+
+### What Was Removed
+
+❌ **All authorization logic in controllers**
+```javascript
+// REMOVED - No longer exists
+if (req.authzIdentity.role !== 'admin') {
+  return res.status(403).json({ error: 'Forbidden' });
+}
+```
+
+❌ **JWT-based authorization decisions**
+- JWT validation remains (optional)
+- JWT is NOT used for authorization
+
+❌ **AUTHZ_SOURCE=jwt support**
+- Only `gateway` is allowed
+- Backend fails to start otherwise
+
+❌ **Authorization middleware complexity**
+- No identity source selection
+- No fallback logic
+- Simple: require gateway identity or reject
+
+### Security Model
+
+**Defense in Depth:**
+
+| Layer | Responsibility | Can Block? |
+|-------|---------------|------------|
+| Gateway | Authentication + Authorization | ✅ Yes |
+| Backend Gateway Trust | Verify gateway origin | ✅ Yes |
+| Backend JWT Validation | Audit JWT validity | ⚠️ Optional |
+| Backend Controllers | Business logic only | ❌ No |
+
+**Trust Model:**
+
+> "If this request reached the backend, the gateway already authorized it."
+
+### Logging
+
+**Per-Request (Enforce Mode):**
+```
+IDENTITY jwt={user=alice, role=admin}
+IDENTITY gateway={user=alice, role=admin}
+AUTHZ authority=gateway user=alice role=admin method=GET path=/orders
+method=GET path=/orders user=alice role=admin status=200 latency=45ms
+```
+
+**Per-Request (Audit Mode):**
+```
+JWT_AUDIT valid=true user=alice role=admin
+IDENTITY gateway={user=alice, role=admin}
+AUTHZ authority=gateway user=alice role=admin method=GET path=/orders
+method=GET path=/orders user=alice role=admin status=200 latency=45ms
+```
+
+**Missing Gateway Identity:**
+```
+MISSING_GATEWAY_IDENTITY method=GET path=/orders
+```
+
+### JWT Audit Mode
+
+Optional defense-in-depth feature:
+
+**Enforce Mode (default):**
+```bash
+JWT_VALIDATION_MODE=enforce
+```
+- Invalid JWT → Request blocked (401)
+- Valid JWT → Request continues
+
+**Audit Mode:**
+```bash
+JWT_VALIDATION_MODE=audit
+```
+- Invalid JWT → Logged, request continues
+- Valid JWT → Logged, request continues
+- Useful for monitoring JWT health without blocking
+
+### Testing
+
+**Normal Flow:**
+```bash
+AUTHZ_SOURCE=gateway JWT_VALIDATION_MODE=enforce npm start
+
+TOKEN=$(curl -s -X POST http://localhost:8081/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "alice", "password": "password123"}' \
+  | grep -o '"accessToken":"[^"]*' | cut -d'"' -f4)
+
+curl http://localhost:8081/orders -H "Authorization: Bearer $TOKEN"
+```
+
+**Audit Mode:**
+```bash
+AUTHZ_SOURCE=gateway JWT_VALIDATION_MODE=audit npm start
+
+# Request with invalid JWT still works (gateway enforces auth)
+curl http://localhost:8081/orders -H "Authorization: Bearer invalid"
+```
+
+**Direct Backend Access (Should Fail):**
+```bash
+# Bypass gateway - should be rejected
+curl http://localhost:5001/orders -H "Authorization: Bearer $TOKEN"
+# Response: 401 Unauthorized (MISSING_GATEWAY_IDENTITY)
+```
+
+### Rollback
+
+**Phase 3 is NOT reversible via configuration.**
+
+To rollback to Phase 2:
+1. Revert code changes
+2. Restore authorization logic in controllers
+3. Restore `authzMiddleware` with JWT fallback
+4. Remove startup validation
+
+**This is intentional** - Phase 3 is the final state.
+
+### Success Criteria
+
+✅ Backend has NO authorization logic  
+✅ Gateway is the sole authorization authority  
+✅ Backend requires gateway identity  
+✅ Startup validation enforces gateway-only  
+✅ JWT audit mode available  
+✅ Unauthorized requests never reach backend  
+✅ Logs show gateway as authority  
+
+### Architecture
+
+```
+Gateway (Port 8081)
+  ✅ Verifies JWT
+  ✅ Enforces authorization policies
+  ✅ Injects trusted identity headers
+  ↓
+Backend (Port 5001)
+  ✅ Validates gateway secret
+  ⚠️ Validates JWT (audit mode optional)
+  ✅ Requires gateway identity
+  ❌ NO authorization decisions
+  ✅ Executes business logic only
+```
+
+**Backend is now a trusted execution service.**
 
 ## STEP 4 — Phase 2: Gateway-Driven Authorization
 

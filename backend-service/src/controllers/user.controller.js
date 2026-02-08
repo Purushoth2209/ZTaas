@@ -1,6 +1,8 @@
 import { getAllUsers, getUserById } from '../services/user.service.js';
 import { randomDelay } from '../utils/delay.js';
 
+// Phase 3: No authorization logic - gateway is the sole authority
+// If request reaches here, it is authorized by gateway
 export const getUsers = async (req, res) => {
   await randomDelay();
   res.json({ users: getAllUsers(), requestedBy: req.authzIdentity.username });

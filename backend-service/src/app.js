@@ -4,17 +4,22 @@ import userRoutes from './routes/user.routes.js';
 import orderRoutes from './routes/order.routes.js';
 import jwksRoutes from './routes/jwks.routes.js';
 import { gatewayTrustMiddleware } from './middleware/gatewayTrust.middleware.js';
-import { AUTHZ_SOURCE } from './config/authz.config.js';
+import { AUTHZ_SOURCE, JWT_VALIDATION_MODE } from './config/authz.config.js';
 import { log } from './utils/logger.js';
 import { startTimer, getElapsedTime } from './utils/timer.js';
 
 const app = express();
 
-log(`AUTHZ_SOURCE configured as: ${AUTHZ_SOURCE}`);
+// Phase 3: Startup validation
+log(`========================================`);
+log(`PHASE 3: Gateway as Sole Authority`);
+log(`AUTHZ_SOURCE: ${AUTHZ_SOURCE}`);
+log(`JWT_VALIDATION_MODE: ${JWT_VALIDATION_MODE}`);
+log(`========================================`);
 
 app.use(express.json());
 
-// Phase 1: Extract gateway identity headers (observe only)
+// Phase 1: Extract gateway identity headers
 app.use(gatewayTrustMiddleware);
 
 app.use((req, res, next) => {
@@ -39,9 +44,9 @@ app.use((req, res, next) => {
       }
     }
     
-    // Phase 2: Log authorization source
-    if (req.authzSource && req.authzIdentity) {
-      log(`AUTHZ source=${req.authzSource} user=${req.authzIdentity.username} role=${req.authzIdentity.role} method=${req.method} path=${req.path}`);
+    // Phase 3: Log authorization authority (always gateway)
+    if (req.authzAuthority && req.authzIdentity) {
+      log(`AUTHZ authority=${req.authzAuthority} user=${req.authzIdentity.username} role=${req.authzIdentity.role} method=${req.method} path=${req.path}`);
     }
     
     const user = req.user ? `user=${req.user.username} role=${req.user.role}` : 'anonymous';
