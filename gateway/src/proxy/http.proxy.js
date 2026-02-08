@@ -1,10 +1,34 @@
 import axios from 'axios';
+import { GATEWAY_SECRET } from '../config/gateway.secret.js';
 
-export const forwardRequest = async (url, method, headers, data, params) => {
+export const forwardRequest = async (url, method, headers, data, params, identity = null) => {
   const cleanHeaders = { ...headers };
   delete cleanHeaders['content-length'];
   delete cleanHeaders['host'];
   delete cleanHeaders['connection'];
+  
+  // Strip any client-provided gateway headers
+  delete cleanHeaders['x-user-id'];
+  delete cleanHeaders['x-username'];
+  delete cleanHeaders['x-user-role'];
+  delete cleanHeaders['x-issuer'];
+  delete cleanHeaders['x-gateway-secret'];
+  
+  // Inject trusted identity headers from verified JWT
+  if (identity) {
+    cleanHeaders['X-Gateway-Secret'] = GATEWAY_SECRET;
+    cleanHeaders['X-User-Id'] = identity.userId;  // Fixed: was identity.sub
+    cleanHeaders['X-Username'] = identity.username;
+    cleanHeaders['X-User-Role'] = identity.role;
+    cleanHeaders['X-Issuer'] = identity.issuer;
+    
+    // Log headers being sent to backend
+    console.log(`[GATEWAY SENDING] X-Gateway-Secret: ${GATEWAY_SECRET}`);
+    console.log(`[GATEWAY SENDING] X-User-Id: ${identity.userId}`);
+    console.log(`[GATEWAY SENDING] X-Username: ${identity.username}`);
+    console.log(`[GATEWAY SENDING] X-User-Role: ${identity.role}`);
+    console.log(`[GATEWAY SENDING] X-Issuer: ${identity.issuer}`);
+  }
 
   const response = await axios({
     url,

@@ -108,12 +108,75 @@ curl http://localhost:8081/orders \
 
 ## Features
 
-- ✅ JWT-based authentication
+- ✅ JWT-based authentication (RS256)
 - ✅ Protected endpoints with middleware
 - ✅ Role-based access (admin vs user)
 - ✅ Realistic latency (50-100ms)
 - ✅ Request logging
 - ✅ In-memory data store
+- ✅ JWKS endpoint for public key distribution
+- ✅ **STEP 4 — Phase 1: Gateway Trust (Observe Only)**
+
+## STEP 4 — Phase 1: Gateway Trust Headers (Observation Mode)
+
+### Overview
+The backend now receives **trusted identity headers** from the gateway for observation and validation purposes.
+
+**IMPORTANT**: This is Phase 1 — **NO authorization behavior has changed**. The backend still validates JWTs and makes all authorization decisions based on JWT claims.
+
+### What Changed
+
+#### Gateway Changes
+- Gateway now injects trusted identity headers when forwarding requests:
+  - `X-User-Id` → from JWT `sub`
+  - `X-Username` → from JWT `username`
+  - `X-User-Role` → from JWT `role`
+  - `X-Issuer` → from JWT `iss`
+  - `X-Gateway-Secret` → shared secret for verification
+
+#### Backend Changes
+- New middleware: `gatewayTrust.middleware.js`
+  - Validates `X-Gateway-Secret` header
+  - Extracts gateway identity into `req.gatewayIdentity`
+  - Does NOT enforce authorization
+- Enhanced logging:
+  - Logs both JWT identity and gateway identity
+  - Detects and logs mismatches (if any)
+
+### Dual Identity Logging
+
+Every authenticated request now logs:
+```
+IDENTITY jwt={user=alice, role=admin}
+IDENTITY gateway={user=alice, role=admin}
+```
+
+If identities mismatch:
+```
+IDENTITY_MISMATCH jwtRole=admin gatewayRole=user
+```
+
+### Security Guard
+
+The backend validates the gateway using a shared secret:
+- Secret: `gw-secret-2024-phase1-trust`
+- Location: `src/config/gateway.secret.js`
+- If secret is missing/invalid, gateway headers are ignored
+
+### What Did NOT Change
+
+- ❌ Authorization logic (still uses JWT)
+- ❌ Response behavior
+- ❌ HTTP status codes
+- ❌ Endpoint access control
+
+### Rollback
+
+To disable Phase 1:
+1. Remove `gatewayTrustMiddleware` from `app.js`
+2. Revert logging changes in `app.js`
+
+No other changes needed — fully reversible.
 
 ## JWT Details
 

@@ -11,7 +11,8 @@ export const handleProxyRequest = async (req, res) => {
       req.method,
       req.headers,
       req.body,
-      req.query
+      req.query,
+      req.identity
     );
 
     const elapsed = getElapsedTime(startTime);

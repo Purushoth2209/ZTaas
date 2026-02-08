@@ -10,7 +10,7 @@ const sanitizeHeaders = (headers) => {
   return sanitized;
 };
 
-export const proxyRequest = async (path, method, headers, body, query) => {
+export const proxyRequest = async (path, method, headers, body, query, identity = null) => {
   const backendUrl = getBackendTarget();
   const targetUrl = `${backendUrl}${path}`;
 
@@ -25,7 +25,7 @@ export const proxyRequest = async (path, method, headers, body, query) => {
 
   log(`[OUTGOING] Forwarding to: ${targetUrl}`);
 
-  const response = await forwardRequest(targetUrl, method, headers, body, query);
+  const response = await forwardRequest(targetUrl, method, headers, body, query, identity);
 
   log(`[RESPONSE] Status: ${response.status}`);
   log(`[RESPONSE] Headers: ${JSON.stringify(sanitizeHeaders(response.headers))}`);

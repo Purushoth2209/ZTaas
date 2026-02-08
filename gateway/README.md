@@ -71,6 +71,40 @@ Response:
 - ✅ Identity extraction and logging
 - ✅ Runtime JWT trust configuration
 - ✅ Authentication enforcement mode
+- ✅ **STEP 4 — Phase 1: Gateway Trust Headers**
+
+## STEP 4 — Phase 1: Gateway Trust Headers
+
+### Overview
+The gateway now injects **trusted identity headers** when forwarding requests to the backend.
+
+### Injected Headers
+
+When a valid JWT is verified, the gateway adds:
+- `X-User-Id` → from JWT `sub` claim
+- `X-Username` → from JWT `username` claim
+- `X-User-Role` → from JWT `role` claim
+- `X-Issuer` → from JWT `iss` claim
+- `X-Gateway-Secret` → shared secret for backend verification
+
+### Security Measures
+
+1. **Client header stripping**: Any client-provided `X-User-*`, `X-Issuer`, or `X-Gateway-Secret` headers are removed before forwarding
+2. **JWT verification required**: Headers are only injected if JWT verification succeeds
+3. **Shared secret**: Backend validates `X-Gateway-Secret` before trusting identity headers
+
+### Configuration
+
+- Gateway secret: `gw-secret-2024-phase1-trust`
+- Location: `src/config/gateway.secret.js`
+- Must match backend secret
+
+### Important Notes
+
+- This is Phase 1 — **observation only**
+- Gateway authorization behavior unchanged
+- Backend still validates JWTs independently
+- No trust decisions made yet
 
 ## Configuration
 

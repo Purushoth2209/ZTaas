@@ -2,7 +2,7 @@ import { verifyJwt } from '../services/jwtVerification.service.js';
 import { log } from '../utils/logger.js';
 import { getJwtConfig } from '../services/config.service.js';
 
-const PUBLIC_PATHS = ['/login'];
+const PUBLIC_PATHS = ['/auth/login', '/hello'];
 
 export const identityMiddleware = async (req, res, next) => {
   if (PUBLIC_PATHS.includes(req.path)) {
