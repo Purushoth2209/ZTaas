@@ -47,6 +47,7 @@ export const verifyJwt = async (token) => {
     userId: verified.sub,
     username: verified.username,
     role: verified.role,
+    tenant: verified.tenant || verified.ten || 'default',
     issuer: verified.iss
   };
 };

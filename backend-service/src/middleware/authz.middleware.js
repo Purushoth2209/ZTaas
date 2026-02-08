@@ -1,20 +1,30 @@
 import { log } from '../utils/logger.js';
 
-// Phase 3: Gateway is the sole authorization authority
-// Backend trusts gateway identity completely
+// Phase 4: JWT-based authorization
+// Backend accepts gateway-issued JWTs
 export const gatewayAuthorityMiddleware = (req, res, next) => {
-  // Gateway identity is REQUIRED
-  if (!req.gatewayIdentity) {
-    log(`MISSING_GATEWAY_IDENTITY method=${req.method} path=${req.path}`);
-    return res.status(401).json({ 
-      error: 'Unauthorized',
-      message: 'Gateway identity required'
-    });
+  // Accept either gateway headers (Phase 3) or JWT (Phase 4)
+  if (req.gatewayIdentity) {
+    req.authzIdentity = req.gatewayIdentity;
+    req.authzAuthority = 'gateway-headers';
+    return next();
+  }
+  
+  // JWT-based identity (Phase 4)
+  if (req.user) {
+    req.authzIdentity = {
+      userId: req.user.sub,
+      username: req.user.sub,
+      role: req.user.role,
+      issuer: req.user.iss
+    };
+    req.authzAuthority = 'gateway-jwt';
+    return next();
   }
 
-  // Trust gateway identity completely - no authorization checks
-  req.authzIdentity = req.gatewayIdentity;
-  req.authzAuthority = 'gateway';
-  
-  next();
+  log(`MISSING_IDENTITY method=${req.method} path=${req.path}`);
+  return res.status(401).json({ 
+    error: 'Unauthorized',
+    message: 'Authentication required'
+  });
 };

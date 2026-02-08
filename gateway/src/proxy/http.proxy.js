@@ -1,27 +1,22 @@
 import axios from 'axios';
-import { GATEWAY_SECRET } from '../config/gateway.secret.js';
 
 export const forwardRequest = async (url, method, headers, data, params, identity = null) => {
   const cleanHeaders = { ...headers };
+  
+  // Remove standard headers that should not be forwarded
   delete cleanHeaders['content-length'];
   delete cleanHeaders['host'];
   delete cleanHeaders['connection'];
   
-  // Strip any client-provided gateway headers
+  // Strip any client-provided custom headers
   delete cleanHeaders['x-user-id'];
   delete cleanHeaders['x-username'];
   delete cleanHeaders['x-user-role'];
   delete cleanHeaders['x-issuer'];
   delete cleanHeaders['x-gateway-secret'];
   
-  // Inject trusted identity headers from verified JWT
-  if (identity) {
-    cleanHeaders['X-Gateway-Secret'] = GATEWAY_SECRET;
-    cleanHeaders['X-User-Id'] = identity.userId;
-    cleanHeaders['X-Username'] = identity.username;
-    cleanHeaders['X-User-Role'] = identity.role;
-    cleanHeaders['X-Issuer'] = identity.issuer;
-  }
+  // Authorization header now contains internal JWT (replaced by jwtTranslationMiddleware)
+  // No additional processing needed - just forward it
 
   const response = await axios({
     url,

@@ -1,0 +1,14 @@
+{
+  "keys": [
+    {
+      "kid": "gateway-key-1770544912549",
+      "algorithm": "RS256",
+      "use": "sig",
+      "createdAt": "2026-02-08T10:01:52.550Z",
+      "privateKeyPath": "/Users/purushothaman/clg-project/ZTaaS/gateway/src/keys/gateway-key-1770544912549.private.pem",
+      "publicKeyPath": "/Users/purushothaman/clg-project/ZTaaS/gateway/src/keys/gateway-key-1770544912549.public.pem",
+      "active": true
+    }
+  ],
+  "currentKid": "gateway-key-1770544912549"
+}

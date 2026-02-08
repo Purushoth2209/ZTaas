@@ -2,7 +2,7 @@ import { verifyToken } from '../services/auth.service.js';
 import { isJwtAuditMode } from '../config/authz.config.js';
 import { log } from '../utils/logger.js';
 
-export const authenticateJWT = (req, res, next) => {
+export const authenticateJWT = async (req, res, next) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -14,7 +14,7 @@ export const authenticateJWT = (req, res, next) => {
   }
 
   const token = authHeader.substring(7);
-  const decoded = verifyToken(token);
+  const decoded = await verifyToken(token);
 
   if (!decoded) {
     if (isJwtAuditMode()) {
@@ -27,7 +27,7 @@ export const authenticateJWT = (req, res, next) => {
   req.user = decoded;
   
   if (isJwtAuditMode()) {
-    log(`JWT_AUDIT valid=true user=${decoded.username} role=${decoded.role}`);
+    log(`JWT_AUDIT valid=true user=${decoded.username || decoded.sub} issuer=${decoded.iss}`);
   }
   
   next();
