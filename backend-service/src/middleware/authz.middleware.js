@@ -1,8 +1,15 @@
 import { log } from '../utils/logger.js';
 
-// Phase 4: JWT-based authorization
-// Backend accepts gateway-issued JWTs
+// DEPRECATED: Phase 4 - Authorization middleware removed
+// Backend services are now execution-only
+// Valid JWT = authorized request (no additional checks)
+
+// This middleware is kept for backward compatibility only
+// TODO: Remove after all services migrate to Phase 4
+
 export const gatewayAuthorityMiddleware = (req, res, next) => {
+  log('DEPRECATED: gatewayAuthorityMiddleware should not be used in Phase 4');
+  
   // Accept either gateway headers (Phase 3) or JWT (Phase 4)
   if (req.gatewayIdentity) {
     req.authzIdentity = req.gatewayIdentity;

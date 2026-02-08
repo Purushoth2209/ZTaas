@@ -1,18 +1,18 @@
-import { getAllOrders, getOrdersByUser } from '../services/order.service.js';
+import { getAllOrders } from '../services/order.service.js';
 import { randomDelay } from '../utils/delay.js';
 
-// Phase 3: No authorization logic - gateway is the sole authority
-// If request reaches here, it is authorized by gateway
+// Phase 4: Execution-only backend
+// Valid JWT = authorized request (gateway already decided)
 export const getOrders = async (req, res) => {
   await randomDelay();
   
-  const identity = req.authzIdentity;
-  
-  // Business logic only - no role checks
-  // Gateway already enforced authorization
-  const orders = identity.role === 'admin' 
-    ? getAllOrders() 
-    : getOrdersByUser(identity.userId);
+  // Gateway already authorized this request
+  // Just execute business logic - no role checks
+  const orders = getAllOrders();
 
-  res.json({ orders, requestedBy: identity.username });
+  res.json({ 
+    orders, 
+    requestedBy: req.user.sub,
+    tenant: req.user.ten
+  });
 };

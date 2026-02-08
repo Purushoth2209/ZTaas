@@ -21,13 +21,16 @@ export const authenticateJWT = async (req, res, next) => {
       log(`JWT_AUDIT valid=false reason=invalid_token method=${req.method} path=${req.path}`);
       return next();
     }
-    return res.status(401).json({ error: 'Invalid or expired token' });
+    return res.status(401).json({ 
+      error: 'Invalid or expired token',
+      message: 'Only gateway-issued tokens are accepted'
+    });
   }
 
   req.user = decoded;
   
   if (isJwtAuditMode()) {
-    log(`JWT_AUDIT valid=true user=${decoded.username || decoded.sub} issuer=${decoded.iss}`);
+    log(`JWT_AUDIT valid=true user=${decoded.sub} issuer=${decoded.iss} audience=${decoded.aud}`);
   }
   
   next();

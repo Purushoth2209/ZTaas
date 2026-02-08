@@ -5,6 +5,7 @@ import { JWT_CONFIG } from '../config/jwt.config.js';
 
 const GATEWAY_ISSUER = 'https://gateway.internal';
 const GATEWAY_JWKS_URI = 'http://localhost:8081/gateway/.well-known/jwks.json';
+const GATEWAY_AUDIENCE = 'backend-service';
 
 let gatewayJwksClient = null;
 
@@ -28,7 +29,10 @@ const getGatewaySigningKey = (kid) => {
   });
 };
 
+// DEPRECATED: Only for testing - production uses gateway
 export const authenticateUser = (username, password) => {
+  console.warn('DEPRECATED: Direct backend login. Use gateway for production.');
+  
   const user = users.find(u => u.username === username && u.password === password);
   if (!user) return null;
 
@@ -51,30 +55,31 @@ export const authenticateUser = (username, password) => {
   return { accessToken: token };
 };
 
+// STEP 5.5: GATEWAY-ONLY - Strict issuer enforcement
 export const verifyToken = async (token) => {
   try {
     const decoded = jwt.decode(token, { complete: true });
-    if (!decoded) return null;
-
-    const issuer = decoded.payload.iss;
-
-    // Gateway-issued token
-    if (issuer === GATEWAY_ISSUER) {
-      const publicKey = await getGatewaySigningKey(decoded.header.kid);
-      return jwt.verify(token, publicKey, {
-        algorithms: ['RS256'],
-        issuer: GATEWAY_ISSUER,
-        audience: 'backend-service'
-      });
+    if (!decoded) {
+      throw new Error('Invalid token structure');
     }
 
-    // Backend-issued token (legacy)
-    return jwt.verify(token, JWT_CONFIG.publicKey, {
-      algorithms: [JWT_CONFIG.algorithm],
-      issuer: JWT_CONFIG.issuer,
-      audience: JWT_CONFIG.audience
+    // STRICT: Only accept gateway-issued tokens
+    if (decoded.payload.iss !== GATEWAY_ISSUER) {
+      throw new Error(`Rejected: issuer=${decoded.payload.iss}, expected=${GATEWAY_ISSUER}`);
+    }
+
+    // Verify signature using gateway JWKS
+    const publicKey = await getGatewaySigningKey(decoded.header.kid);
+    
+    const verified = jwt.verify(token, publicKey, {
+      algorithms: ['RS256'],
+      issuer: GATEWAY_ISSUER,
+      audience: GATEWAY_AUDIENCE
     });
-  } catch {
+
+    return verified;
+  } catch (error) {
+    console.error('JWT verification failed:', error.message);
     return null;
   }
 };
