@@ -4,9 +4,10 @@ import { randomDelay } from '../utils/delay.js';
 export const getOrders = async (req, res) => {
   await randomDelay();
   
-  const orders = req.user.role === 'admin' 
+  const identity = req.authzIdentity;
+  const orders = identity.role === 'admin' 
     ? getAllOrders() 
-    : getOrdersByUser(req.user.userId);
+    : getOrdersByUser(identity.userId);
 
-  res.json({ orders, requestedBy: req.user.username });
+  res.json({ orders, requestedBy: identity.username });
 };

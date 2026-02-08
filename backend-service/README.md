@@ -116,6 +116,131 @@ curl http://localhost:8081/orders \
 - ✅ In-memory data store
 - ✅ JWKS endpoint for public key distribution
 - ✅ **STEP 4 — Phase 1: Gateway Trust (Observe Only)**
+- ✅ **STEP 4 — Phase 2: Gateway-Driven Authorization**
+
+## STEP 4 — Phase 2: Gateway-Driven Authorization
+
+### Overview
+Backend authorization decisions now use **gateway-provided identity** instead of JWT claims.
+
+**IMPORTANT**: JWT validation remains enabled for defense in depth.
+
+### Authorization Source Control
+
+Environment variable controls authorization source:
+
+```bash
+AUTHZ_SOURCE=gateway  # Use gateway identity (default)
+AUTHZ_SOURCE=jwt      # Use JWT claims (fallback)
+```
+
+### How It Works
+
+#### Request Flow
+1. Gateway verifies JWT and injects identity headers
+2. Backend validates JWT (defense in depth)
+3. Backend extracts gateway identity (Phase 1)
+4. **NEW**: Backend selects authorization source based on `AUTHZ_SOURCE`
+5. Authorization decisions use selected identity
+
+#### Authorization Middleware
+
+New middleware: `authz.middleware.js`
+
+```javascript
+if (AUTHZ_SOURCE === 'gateway' && req.gatewayIdentity) {
+  req.authzIdentity = req.gatewayIdentity;  // Use gateway
+} else {
+  req.authzIdentity = req.user;             // Fallback to JWT
+}
+```
+
+#### Controllers Use Unified Identity
+
+All controllers now use `req.authzIdentity`:
+
+```javascript
+// Before (Phase 1)
+const role = req.user.role;
+
+// After (Phase 2)
+const role = req.authzIdentity.role;  // Source depends on AUTHZ_SOURCE
+```
+
+### Security Guarantees
+
+1. **JWT still validated** on every request
+2. **Gateway secret validated** before trusting headers
+3. **Automatic fallback** to JWT if gateway identity missing
+4. **No request authorized** without valid identity
+
+### Logging
+
+Every authorized request logs:
+
+```
+AUTHZ source=gateway user=alice role=admin method=GET path=/orders
+```
+
+If fallback occurs:
+
+```
+AUTHZ_FALLBACK source=jwt reason=missing_gateway_identity path=/orders
+```
+
+### Configuration
+
+**Default (Gateway-Driven):**
+```bash
+AUTHZ_SOURCE=gateway npm start
+```
+
+**Fallback to JWT:**
+```bash
+AUTHZ_SOURCE=jwt npm start
+```
+
+**No restart required** - just set env var before starting.
+
+### What Changed
+
+✅ Authorization source is configurable  
+✅ Controllers use `req.authzIdentity` (unified)  
+✅ Automatic fallback to JWT if gateway identity missing  
+✅ Enhanced logging shows authorization source  
+
+### What Did NOT Change
+
+❌ JWT validation (still required)  
+❌ Authorization rules (admin vs user logic identical)  
+❌ Response behavior  
+❌ HTTP status codes  
+❌ Gateway behavior  
+
+### Rollback
+
+**Instant rollback** via environment variable:
+
+```bash
+# Switch back to JWT-based authorization
+AUTHZ_SOURCE=jwt npm start
+```
+
+No code changes needed.
+
+### Testing
+
+**Test with Gateway Authorization:**
+```bash
+AUTHZ_SOURCE=gateway npm start
+```
+
+**Test with JWT Authorization:**
+```bash
+AUTHZ_SOURCE=jwt npm start
+```
+
+Behavior should be identical - only log messages differ.
 
 ## STEP 4 — Phase 1: Gateway Trust Headers (Observation Mode)
 
