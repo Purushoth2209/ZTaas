@@ -18,5 +18,6 @@ const telemetrySchema = new mongoose.Schema({
 
 telemetrySchema.index({ userId: 1 });
 telemetrySchema.index({ timestamp: -1 });
+telemetrySchema.index({ tenantId: 1, timestamp: -1 });
 
 export default mongoose.model('Telemetry', telemetrySchema, 'telemetry_logs');
