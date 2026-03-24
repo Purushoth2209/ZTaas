@@ -1,7 +1,5 @@
 import { randomUUID } from 'crypto';
-
-const telemetryStore = [];
-const MAX_RECORDS = 10000;
+import TelemetryModel from '../models/telemetry.model.js';
 
 export const collectRequestTelemetry = (req) => {
   const identity = req.identity || {};
@@ -10,6 +8,7 @@ export const collectRequestTelemetry = (req) => {
     requestId: randomUUID(),
     userId: identity.username || identity.sub || null,
     role: identity.role || null,
+    tenantId: identity.tenantId || 'default',
     ipAddress: req.ip,
     xForwardedFor: req.headers['x-forwarded-for'] || null,
     userAgent: req.headers['user-agent'] || null,
@@ -17,25 +16,21 @@ export const collectRequestTelemetry = (req) => {
     method: req.method,
     timestamp: Date.now(),
     authorizationResult: null,
-    responseStatus: null
+    responseStatus: null,
+    requestDuration: null
   };
 };
 
 export const storeTelemetry = (record) => {
-  telemetryStore.push(record);
-  limitTelemetryStore();
+  return TelemetryModel.create(record);
 };
 
-export const getUserTelemetry = (userId) => {
-  return telemetryStore.filter(record => record.userId === userId);
+export const getAllTelemetry = (page = 1, limit = 1000) => {
+  const skip = (page - 1) * limit;
+  return TelemetryModel.find().sort({ timestamp: -1 }).skip(skip).limit(limit).lean();
 };
 
-export const getAllTelemetry = () => {
-  return [...telemetryStore];
-};
-
-export const limitTelemetryStore = () => {
-  if (telemetryStore.length > MAX_RECORDS) {
-    telemetryStore.splice(0, telemetryStore.length - MAX_RECORDS);
-  }
+export const getUserTelemetry = (userId, page = 1, limit = 500) => {
+  const skip = (page - 1) * limit;
+  return TelemetryModel.find({ userId }).sort({ timestamp: -1 }).skip(skip).limit(limit).lean();
 };

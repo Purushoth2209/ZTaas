@@ -1,5 +1,5 @@
 import express from 'express';
-import { getTelemetry, getUserTelemetryData } from '../controllers/telemetry.controller.js';
+import { getTelemetry, getUserTelemetryData, getUserFeaturesData } from '../controllers/telemetry.controller.js';
 import { adminIdentityMiddleware } from '../middleware/admin.identity.middleware.js';
 import { adminAuthorizationMiddleware } from '../middleware/admin.authorization.middleware.js';
 import { log } from '../utils/logger.js';
@@ -15,5 +15,6 @@ const protect = [adminIdentityMiddleware, adminAuthorizationMiddleware(['admin']
 
 router.get('/telemetry', ...protect, getTelemetry);
 router.get('/telemetry/user/:userId', ...protect, getUserTelemetryData);
+router.get('/telemetry/features/:userId', ...protect, getUserFeaturesData);
 
 export default router;

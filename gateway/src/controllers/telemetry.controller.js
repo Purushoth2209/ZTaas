@@ -1,19 +1,37 @@
 import { getAllTelemetry, getUserTelemetry } from '../services/telemetry.service.js';
+import { getUserFeatures } from '../services/feature.service.js';
 
-export const getTelemetry = (req, res) => {
-  const telemetry = getAllTelemetry();
-  res.json({
-    count: telemetry.length,
-    records: telemetry
-  });
+export const getTelemetry = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = Math.min(parseInt(req.query.limit) || 1000, 1000);
+    const records = await getAllTelemetry(page, limit);
+    res.json({ page, limit, count: records.length, records });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch telemetry' });
+  }
 };
 
-export const getUserTelemetryData = (req, res) => {
-  const { userId } = req.params;
-  const telemetry = getUserTelemetry(userId);
-  res.json({
-    userId,
-    count: telemetry.length,
-    records: telemetry
-  });
+export const getUserTelemetryData = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const page = parseInt(req.query.page) || 1;
+    const limit = Math.min(parseInt(req.query.limit) || 500, 500);
+    const records = await getUserTelemetry(userId, page, limit);
+    res.json({ userId, page, limit, count: records.length, records });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch user telemetry' });
+  }
+};
+
+export const getUserFeaturesData = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const tenantId = req.query.tenant || 'default';
+    const windowMs = parseInt(req.query.window) || 60000;
+    const features = await getUserFeatures(userId, tenantId, windowMs);
+    res.json(features);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to compute user features' });
+  }
 };
