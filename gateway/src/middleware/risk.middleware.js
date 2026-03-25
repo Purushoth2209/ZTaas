@@ -1,4 +1,5 @@
 import { calculateRisk } from '../services/risk.service.js';
+import { getPolicy } from '../services/riskPolicy.service.js';
 import { log } from '../utils/logger.js';
 
 export const riskMiddleware = async (req, res, next) => {
@@ -14,7 +15,9 @@ export const riskMiddleware = async (req, res, next) => {
       return next();
     }
 
-    if (risk.riskScore >= 0.8) {
+    const policy = await getPolicy(tenantId);
+
+    if (risk.riskScore >= policy.highThreshold) {
       log(`[SECURITY] User ${userId} risk=${risk.riskScore} level=${risk.riskLevel} → action=block`);
       return res.status(403).json({
         message: 'Access denied: High risk detected',
@@ -22,7 +25,7 @@ export const riskMiddleware = async (req, res, next) => {
       });
     }
 
-    if (risk.riskScore >= 0.5) {
+    if (risk.riskScore >= policy.mediumThreshold) {
       log(`[SECURITY] User ${userId} risk=${risk.riskScore} level=${risk.riskLevel} → action=step-up`);
       return res.status(401).json({
         message: 'Step-up authentication required',

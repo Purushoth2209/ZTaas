@@ -1,7 +1,7 @@
-import { setBackendTarget, getBackendTarget } from '../config/config.js';
+import { getConfig, updateConfig } from '../services/systemConfig.service.js';
 import { log } from '../utils/logger.js';
 
-export const updateBackendConfig = (req, res) => {
+export const updateBackendConfig = async (req, res) => {
   const { backendUrl } = req.body;
 
   if (!backendUrl || typeof backendUrl !== 'string') {
@@ -14,11 +14,8 @@ export const updateBackendConfig = (req, res) => {
     return res.status(400).json({ error: 'Invalid URL format' });
   }
 
-  setBackendTarget(backendUrl);
+  await updateConfig({ backendUrl });
   log(`Backend target updated to: ${backendUrl}`);
 
-  res.json({
-    success: true,
-    backendUrl: getBackendTarget()
-  });
+  res.json({ success: true, backendUrl: getConfig().backendUrl });
 };

@@ -5,9 +5,9 @@ export const getJwt = (req, res) => {
   res.json(result);
 };
 
-export const setJwt = (req, res) => {
+export const setJwt = async (req, res) => {
   try {
-    const result = updateJwtConfig(req.body);
+    const result = await updateJwtConfig(req.body);
     res.json({ message: 'JWT configuration updated', config: result });
   } catch (error) {
     res.status(400).json({ error: error.message });

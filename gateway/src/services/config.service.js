@@ -1,32 +1,28 @@
-import { DEFAULT_JWT_CONFIG } from '../config/default.jwt.config.js';
+import { getConfig, updateConfig } from './systemConfig.service.js';
 import { log } from '../utils/logger.js';
 
-let jwtConfig = { ...DEFAULT_JWT_CONFIG };
+export const getJwtConfig = () => getConfig().jwt;
 
-export const getJwtConfig = () => ({ ...jwtConfig });
-
-export const setJwtConfig = (config) => {
-  jwtConfig = { ...jwtConfig, ...config };
+export const setJwtConfig = async (updates) => {
+  await updateConfig({ jwt: { ...getConfig().jwt, ...updates } });
 };
 
-export const getEnforcementMode = () => {
-  return { enforcementMode: jwtConfig.enforcementMode };
-};
+export const getEnforcementMode = () => ({ enforcementMode: getConfig().enforcementMode });
 
-export const updateEnforcementMode = (mode) => {
+export const updateEnforcementMode = async (mode) => {
   if (mode !== 'observe' && mode !== 'enforce') {
     throw new Error('Invalid enforcementMode. Must be "observe" or "enforce"');
   }
-  jwtConfig.enforcementMode = mode;
+  await updateConfig({ enforcementMode: mode });
   log(`Enforcement mode updated to: ${mode}`);
-  return { enforcementMode: jwtConfig.enforcementMode };
+  return getEnforcementMode();
 };
 
-export const updateJwtConfig = (config) => {
+export const updateJwtConfig = async (config) => {
   const updates = {};
-  if (config.issuer) updates.issuer = config.issuer;
-  if (config.jwksUri) updates.jwksUri = config.jwksUri;
-  if (config.audience) updates.audience = config.audience;
+  if (config.issuer)     updates.issuer     = config.issuer;
+  if (config.jwksUri)    updates.jwksUri    = config.jwksUri;
+  if (config.audience)   updates.audience   = config.audience;
   if (config.algorithms) updates.algorithms = config.algorithms;
   if (config.enforcementMode) {
     if (config.enforcementMode !== 'observe' && config.enforcementMode !== 'enforce') {
@@ -34,6 +30,6 @@ export const updateJwtConfig = (config) => {
     }
     updates.enforcementMode = config.enforcementMode;
   }
-  setJwtConfig(updates);
+  await updateConfig({ jwt: { ...getConfig().jwt, ...updates }, ...(updates.enforcementMode ? { enforcementMode: updates.enforcementMode } : {}) });
   return getJwtConfig();
 };

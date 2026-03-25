@@ -1,9 +1,4 @@
-const config = {
-  backendTarget: 'http://localhost:5001'
-};
+import { getConfig } from '../services/systemConfig.service.js';
 
-export const getBackendTarget = () => config.backendTarget;
-
-export const setBackendTarget = (url) => {
-  config.backendTarget = url;
-};
+export const getBackendTarget = () => getConfig().backendUrl;
+export const setBackendTarget = () => {}; // no-op — use systemConfig.service.updateConfig instead

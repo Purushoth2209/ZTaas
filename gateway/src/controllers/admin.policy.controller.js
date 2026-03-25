@@ -1,30 +1,29 @@
-import { getPolicies, setPolicies, clearPolicies } from '../services/policy.service.js';
+import { getPolicies, setPolicies, clearPolicies, listAllPolicies } from '../services/policy.service.js';
 
-export const getAllPolicies = (req, res) => {
-  const policies = getPolicies();
-  res.json({ policies });
-};
-
-export const updatePolicies = (req, res) => {
-  const { policies } = req.body;
-  
-  if (!policies || !Array.isArray(policies)) {
-    return res.status(400).json({
-      error: 'Bad Request',
-      message: 'policies must be an array'
-    });
+export const getAllPolicies = async (req, res) => {
+  const tenantId = req.query.tenantId;
+  if (tenantId) {
+    const rules = await getPolicies(tenantId);
+    return res.json({ tenantId, policies: rules });
   }
-  
-  setPolicies(policies);
-  res.json({
-    message: 'Policies updated',
-    count: policies.length
-  });
+  const all = await listAllPolicies();
+  res.json({ tenants: all });
 };
 
-export const deletePolicies = (req, res) => {
-  clearPolicies();
-  res.json({
-    message: 'All policies cleared'
-  });
+export const updatePolicies = async (req, res) => {
+  const tenantId = req.body.tenantId || 'default';
+  const { policies } = req.body;
+
+  if (!policies || !Array.isArray(policies)) {
+    return res.status(400).json({ error: 'policies must be an array' });
+  }
+
+  await setPolicies(tenantId, policies);
+  res.json({ message: 'Policies updated', tenantId, count: policies.length });
+};
+
+export const deletePolicies = async (req, res) => {
+  const tenantId = req.body.tenantId || 'default';
+  await clearPolicies(tenantId);
+  res.json({ message: 'Policies cleared', tenantId });
 };

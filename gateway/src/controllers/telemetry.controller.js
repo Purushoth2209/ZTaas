@@ -14,9 +14,10 @@ export const getTelemetry = async (req, res) => {
 
 export const getUserTelemetryData = async (req, res) => {
   try {
-    const { userId } = req.params;
-    const page = parseInt(req.query.page) || 1;
-    const limit = Math.min(parseInt(req.query.limit) || 500, 500);
+    const { userId, page: p, limit: l } = req.query;
+    if (!userId) return res.status(400).json({ error: 'userId is required' });
+    const page = parseInt(p) || 1;
+    const limit = Math.min(parseInt(l) || 500, 500);
     const records = await getUserTelemetry(userId, page, limit);
     res.json({ userId, page, limit, count: records.length, records });
   } catch (err) {
@@ -26,10 +27,10 @@ export const getUserTelemetryData = async (req, res) => {
 
 export const getUserFeaturesData = async (req, res) => {
   try {
-    const { userId } = req.params;
-    const tenantId = req.query.tenant || 'default';
-    const windowMs = parseInt(req.query.window) || 60000;
-    const features = await getUserFeatures(userId, tenantId, windowMs);
+    const { userId, tenant = 'default', window: w } = req.query;
+    if (!userId) return res.status(400).json({ error: 'userId is required' });
+    const windowMs = parseInt(w) || 60000;
+    const features = await getUserFeatures(userId, tenant, windowMs);
     res.json(features);
   } catch (err) {
     res.status(500).json({ error: 'Failed to compute user features' });

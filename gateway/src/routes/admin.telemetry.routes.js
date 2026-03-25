@@ -14,7 +14,7 @@ const logAdminAccess = (req, res, next) => {
 const protect = [adminIdentityMiddleware, adminAuthorizationMiddleware(['admin']), logAdminAccess];
 
 router.get('/telemetry', ...protect, getTelemetry);
-router.get('/telemetry/user/:userId', ...protect, getUserTelemetryData);
-router.get('/telemetry/features/:userId', ...protect, getUserFeaturesData);
+router.get('/telemetry/user', ...protect, getUserTelemetryData);
+router.get('/telemetry/features', ...protect, getUserFeaturesData);
 
 export default router;

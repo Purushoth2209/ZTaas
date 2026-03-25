@@ -1,5 +1,6 @@
 import { getUserFeatures } from './feature.service.js';
 import { getBaseline } from './baseline.service.js';
+import { getPolicy } from './riskPolicy.service.js';
 import { log } from '../utils/logger.js';
 
 function deviationScore(value, mean, std) {
@@ -58,7 +59,9 @@ export const calculateRisk = async (userId, tenantId = 'default') => {
     responseTimeScore * 0.2
   ).toFixed(4);
 
-  const riskLevel = riskScore < 0.3 ? 'LOW' : riskScore < 0.7 ? 'MEDIUM' : 'HIGH';
+  const policy = await getPolicy(tenantId);
+  const riskLevel = riskScore >= policy.highThreshold ? 'HIGH'
+    : riskScore >= policy.mediumThreshold ? 'MEDIUM' : 'LOW';
 
   log(`[SECURITY] Risk computed for ${userId} → score: ${riskScore}, level: ${riskLevel}`);
 

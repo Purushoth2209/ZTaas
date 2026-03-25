@@ -5,9 +5,9 @@ export const getEnforcement = (req, res) => {
   res.json(result);
 };
 
-export const setEnforcement = (req, res) => {
+export const setEnforcement = async (req, res) => {
   try {
-    const result = updateEnforcementMode(req.body.enforcementMode);
+    const result = await updateEnforcementMode(req.body.enforcementMode);
     res.json({ message: 'Enforcement mode updated', ...result });
   } catch (error) {
     res.status(400).json({ error: error.message });
