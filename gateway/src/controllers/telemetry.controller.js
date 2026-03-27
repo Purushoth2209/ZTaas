@@ -1,5 +1,7 @@
 import { getAllTelemetry, getUserTelemetry } from '../services/telemetry.service.js';
 import { getUserFeatures } from '../services/feature.service.js';
+import { calculateRisk } from '../services/risk.service.js';
+import TelemetryModel from '../models/telemetry.model.js';
 
 export const getTelemetry = async (req, res) => {
   try {
@@ -34,5 +36,28 @@ export const getUserFeaturesData = async (req, res) => {
     res.json(features);
   } catch (err) {
     res.status(500).json({ error: 'Failed to compute user features' });
+  }
+};
+
+export const getUsersRiskSummary = async (req, res) => {
+  try {
+    const userDocs = await TelemetryModel.aggregate([
+      { $group: { _id: '$userId', lastSeen: { $max: '$timestamp' }, tenantId: { $last: '$tenantId' } } },
+      { $match: { _id: { $ne: null } } },
+      { $sort: { lastSeen: -1 } }
+    ]);
+
+    const results = await Promise.allSettled(
+      userDocs.map(u => calculateRisk(u._id, u.tenantId || 'default').then(r => ({ ...r, lastSeen: u.lastSeen })))
+    );
+
+    const users = results
+      .filter(r => r.status === 'fulfilled' && !r.value.isColdStart)
+      .map(r => r.value)
+      .sort((a, b) => b.riskScore - a.riskScore);
+
+    res.json({ users, total: users.length });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to compute users risk summary' });
   }
 };

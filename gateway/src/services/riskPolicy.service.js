@@ -1,7 +1,7 @@
 import RiskPolicy from '../models/riskPolicy.model.js';
 import { log } from '../utils/logger.js';
 
-const DEFAULT_POLICY = { highThreshold: 0.9, mediumThreshold: 0.6 };
+const DEFAULT_POLICY = { highThreshold: 0.7, mediumThreshold: 0.4 };
 const cache = new Map();
 
 export const getPolicy = async (tenantId = 'default') => {
