@@ -1,6 +1,7 @@
 import { getAllTelemetry, getUserTelemetry } from '../services/telemetry.service.js';
 import { getUserFeatures } from '../services/feature.service.js';
 import { calculateRisk } from '../services/risk.service.js';
+import { getBaseline } from '../services/baseline.service.js';
 import TelemetryModel from '../models/telemetry.model.js';
 
 export const getTelemetry = async (req, res) => {
@@ -36,6 +37,47 @@ export const getUserFeaturesData = async (req, res) => {
     res.json(features);
   } catch (err) {
     res.status(500).json({ error: 'Failed to compute user features' });
+  }
+};
+
+export const getBaselineData = async (req, res) => {
+  try {
+    const { tenantId = 'default' } = req.query;
+    const baseline = await getBaseline(tenantId);
+    if (!baseline) return res.status(404).json({ error: 'No baseline data found' });
+    res.json(baseline);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch baseline' });
+  }
+};
+
+export const getBaselineTimeseries = async (req, res) => {
+  try {
+    const { tenantId = 'default', windowMs = 3600000 } = req.query;
+    const since = Date.now() - parseInt(windowMs);
+    const buckets = await TelemetryModel.aggregate([
+      { $match: { tenantId, timestamp: { $gte: since } } },
+      {
+        $group: {
+          _id: { $floor: { $divide: ['$timestamp', 60000] } },
+          requestsPerMin: { $sum: 1 },
+          failedRequests: { $sum: { $cond: [{ $gte: ['$responseStatus', 400] }, 1, 0] } },
+          uniqueIPs:      { $addToSet: '$ipAddress' },
+          avgResponseTime:{ $avg: '$requestDuration' },
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+    const series = buckets.map(b => ({
+      minute:         b._id * 60000,
+      requestsPerMin: b.requestsPerMin,
+      failureRate:    b.requestsPerMin > 0 ? +(b.failedRequests / b.requestsPerMin).toFixed(3) : 0,
+      uniqueIPs:      b.uniqueIPs.length,
+      avgResponseTime:Math.round(b.avgResponseTime || 0),
+    }));
+    res.json({ tenantId, windowMs: parseInt(windowMs), series });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch baseline timeseries' });
   }
 };
 

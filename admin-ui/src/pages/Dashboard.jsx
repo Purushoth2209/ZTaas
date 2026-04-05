@@ -1,6 +1,4 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../features/auth/context/AuthContext.jsx'
 import {
   fetchTelemetry,
   fetchUsersRiskSummary,
@@ -9,6 +7,7 @@ import {
 import MetricCard from '../features/dashboard/components/MetricCard.jsx'
 import ActivityTable from '../features/dashboard/components/ActivityTable.jsx'
 import RiskTable from '../features/dashboard/components/RiskTable.jsx'
+import AppLayout from '../components/layout/AppLayout.jsx'
 
 const METRIC_CONFIG = [
   { key: 'total',  title: 'Total Users',        accent: 'default', icon: '👥' },
@@ -48,14 +47,11 @@ function ErrorBanner({ message, onRetry }) {
 }
 
 export default function Dashboard() {
-  const { logout } = useAuth()
-  const navigate = useNavigate()
-
-  const [telemetry, setTelemetry]   = useState([])
-  const [metrics, setMetrics]       = useState({ total: 0, low: 0, medium: 0, high: 0 })
-  const [topUsers, setTopUsers]     = useState([])
-  const [loading, setLoading]       = useState(true)
-  const [error, setError]           = useState('')
+  const [telemetry, setTelemetry]     = useState([])
+  const [metrics, setMetrics]         = useState({ total: 0, low: 0, medium: 0, high: 0 })
+  const [topUsers, setTopUsers]       = useState([])
+  const [loading, setLoading]         = useState(true)
+  const [error, setError]             = useState('')
   const [lastUpdated, setLastUpdated] = useState(null)
 
   const loadData = useCallback(async () => {
@@ -81,28 +77,15 @@ export default function Dashboard() {
 
   useEffect(() => { loadData() }, [loadData])
 
-  function handleLogout() {
-    logout()
-    navigate('/login')
-  }
-
   return (
-    <div className="min-h-screen bg-gray-950">
-      {/* Header */}
-      <header className="border-b border-gray-800 bg-gray-900/60 backdrop-blur-sm sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center">
-              <svg className="w-4 h-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
-              </svg>
-            </div>
-            <div>
-              <h1 className="text-sm font-semibold text-white">ZTaaS Admin</h1>
-              <p className="text-xs text-gray-500">Zero Trust Gateway</p>
-            </div>
+    <AppLayout>
+      <div className="p-6 space-y-6">
+        {/* Page title */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-bold text-white">Dashboard</h2>
+            <p className="text-sm text-gray-500 mt-0.5">System activity and risk overview</p>
           </div>
-
           <div className="flex items-center gap-3">
             {lastUpdated && (
               <span className="text-xs text-gray-600 hidden sm:block">
@@ -119,22 +102,7 @@ export default function Dashboard() {
               </svg>
               Refresh
             </button>
-            <button
-              onClick={handleLogout}
-              className="text-xs text-gray-400 hover:text-red-400 border border-gray-700 hover:border-red-500/50 px-3 py-1.5 rounded-lg transition-colors"
-            >
-              Sign out
-            </button>
           </div>
-        </div>
-      </header>
-
-      {/* Main content */}
-      <main className="max-w-7xl mx-auto px-6 py-6 space-y-6">
-        {/* Page title */}
-        <div>
-          <h2 className="text-xl font-bold text-white">Dashboard</h2>
-          <p className="text-sm text-gray-500 mt-0.5">System activity and risk overview</p>
         </div>
 
         {error && <ErrorBanner message={error} onRetry={loadData} />}
@@ -161,7 +129,7 @@ export default function Dashboard() {
             </div>
           </>
         )}
-      </main>
-    </div>
+      </div>
+    </AppLayout>
   )
 }
