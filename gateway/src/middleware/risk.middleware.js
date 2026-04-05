@@ -1,14 +1,35 @@
 import { calculateRisk } from '../services/risk.service.js';
 import { getPolicy } from '../services/riskPolicy.service.js';
+import { publishToQueue } from '../services/queue.service.js';
 import { log } from '../utils/logger.js';
+import { randomUUID } from 'crypto';
 
 export const riskMiddleware = async (req, res, next) => {
   const userId = req.identity?.username || req.identity?.userId || 'unknown';
   const tenantId = req.identity?.tenantId || req.identity?.tenant || 'default';
+  const requestId = req.headers['x-request-id'] || randomUUID();
 
   try {
     const risk = await calculateRisk(userId, tenantId);
     req.risk = risk;
+
+    if (risk.features) {
+      const payload = {
+        requestId,
+        userId,
+        tenantId,
+        timestamp: Date.now(),
+        features: {
+          requestsPerMin: risk.features.requestsPerMin,
+          failureRate:    risk.features.failureRate,
+          uniqueIPs:      risk.features.uniqueIPs,
+          avgResponseTime: risk.features.avgResponseTime
+        }
+      };
+
+      console.log('[QUEUE] Publishing ML features:', payload);
+      publishToQueue(payload);
+    }
 
     if (risk.isColdStart) {
       log(`[SECURITY] Cold start detected for ${userId} → action=allow (monitoring)`);

@@ -17,6 +17,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "amqplib": "^1.0.3",
     "axios": "^1.6.2",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
