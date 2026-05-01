@@ -1,0 +1,21 @@
+graph LR
+    classDef ext fill:#f3e8ff,stroke:#6a3aa3,color:#22082f
+    classDef gw fill:#eef5ff,stroke:#2c5aa0,color:#0b1d33
+    classDef be fill:#fdecec,stroke:#a83232,color:#3a0e0e
+
+    C["Client + external JWT"]:::ext
+
+    subgraph L1["Layer 1: Gateway - single source of truth"]
+        L1A["verify JWT signature<br/>+ iss / aud / exp"]:::gw
+        L1B["run policy engine<br/>per tenant"]:::gw
+        L1C["mint short-lived<br/>internal JWT, 60 s TTL"]:::gw
+        L1D["strip client X-* headers,<br/>inject trusted ones<br/>+ X-Gateway-Secret"]:::gw
+    end
+
+    subgraph L2["Layer 2: Backend - trusted executor"]
+        L2A["verify X-Gateway-Secret"]:::be
+        L2B["optional JWT audit"]:::be
+        L2C["run business logic,<br/>no authZ decisions"]:::be
+    end
+
+    C --> L1A --> L1B --> L1C --> L1D --> L2A --> L2B --> L2C

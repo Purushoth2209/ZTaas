@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "seed:users": "node src/scripts/seed-users-telemetry.js"
+    "seed:users": "node src/scripts/seed-users-telemetry.js",
+    "seed:ml-queue": "node src/scripts/seed-ml-features-queue.js"
   },
   "keywords": [
     "gateway",

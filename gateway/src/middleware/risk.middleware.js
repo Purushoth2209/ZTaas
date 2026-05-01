@@ -1,4 +1,5 @@
 import { calculateRisk } from '../services/risk.service.js';
+import { getLatestMLScore } from '../services/ml.service.js';
 import { getPolicy } from '../services/riskPolicy.service.js';
 import { publishToQueue } from '../services/queue.service.js';
 import { log } from '../utils/logger.js';
@@ -12,6 +13,18 @@ export const riskMiddleware = async (req, res, next) => {
   try {
     const risk = await calculateRisk(userId, tenantId);
     req.risk = risk;
+
+    const ml = await getLatestMLScore(userId);
+
+    let finalScore = risk.riskScore;
+    if (ml && ml.score !== undefined && ml.score !== null) {
+      finalScore = +(0.5 * risk.riskScore + 0.5 * ml.score).toFixed(4);
+    }
+
+    req.ml = ml;
+    req.finalRiskScore = finalScore;
+
+    console.log('[RISK] Rule:', risk.riskScore, 'ML:', ml?.score, 'Final:', finalScore);
 
     if (risk.features) {
       const payload = {
@@ -38,23 +51,27 @@ export const riskMiddleware = async (req, res, next) => {
 
     const policy = await getPolicy(tenantId);
 
-    if (risk.riskScore >= policy.highThreshold) {
-      log(`[SECURITY] User ${userId} risk=${risk.riskScore} level=${risk.riskLevel} → action=block`);
+    if (finalScore >= policy.highThreshold) {
+      log(`[SECURITY] User ${userId} final=${finalScore} (rule=${risk.riskScore}) level=${risk.riskLevel} → action=block`);
       return res.status(403).json({
         message: 'Access denied: High risk detected',
-        riskScore: risk.riskScore
+        riskScore: finalScore,
+        ruleRiskScore: risk.riskScore,
+        mlScore: ml?.score ?? null
       });
     }
 
-    if (risk.riskScore >= policy.mediumThreshold) {
-      log(`[SECURITY] User ${userId} risk=${risk.riskScore} level=${risk.riskLevel} → action=step-up`);
+    if (finalScore >= policy.mediumThreshold) {
+      log(`[SECURITY] User ${userId} final=${finalScore} (rule=${risk.riskScore}) level=${risk.riskLevel} → action=step-up`);
       return res.status(401).json({
         message: 'Step-up authentication required',
-        riskScore: risk.riskScore
+        riskScore: finalScore,
+        ruleRiskScore: risk.riskScore,
+        mlScore: ml?.score ?? null
       });
     }
 
-    log(`[SECURITY] User ${userId} risk=${risk.riskScore} level=${risk.riskLevel} → action=allow`);
+    log(`[SECURITY] User ${userId} final=${finalScore} (rule=${risk.riskScore}) level=${risk.riskLevel} → action=allow`);
     next();
   } catch (err) {
     log(`[SECURITY] Risk calculation failed for ${userId}: ${err.message} → action=allow (fail-open)`);

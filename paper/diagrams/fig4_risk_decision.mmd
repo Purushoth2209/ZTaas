@@ -1,0 +1,21 @@
+flowchart TD
+    classDef step fill:#eef5ff,stroke:#2c5aa0,color:#0b1d33
+    classDef decide fill:#fff4e6,stroke:#c46c00,color:#3d2300
+    classDef out fill:#e8f7ee,stroke:#2f7d3a,color:#0d2912
+    classDef block fill:#fdecec,stroke:#a83232,color:#3a0e0e
+
+    A([Authenticated request]):::step --> B[features over 60s window]:::step
+    B --> C{requests > 0?}:::decide
+    C -- No --> D[fallback to 10 min window]:::step
+    D --> E{requests > 0?}:::decide
+    E -- No --> F[fallback to 60 min window]:::step
+    F --> G{requests > 0?}:::decide
+    G -- No --> H[/cold start<br/>score = 0.4, allow/]:::out
+    G -- Yes --> I
+    E -- Yes --> I
+    C -- Yes --> I[score = 0.30 req + 0.30 fail<br/>+ 0.20 ip + 0.20 rt]:::step
+    I --> J{score >= high?}:::decide
+    J -- Yes --> K[/HTTP 403 block/]:::block
+    J -- No --> L{score >= medium?}:::decide
+    L -- Yes --> M[/HTTP 401 step-up/]:::block
+    L -- No --> N[/allow/]:::out

@@ -1,0 +1,18 @@
+sequenceDiagram
+    autonumber
+    participant Cl as Client
+    participant GW as Gateway
+    participant MQ as RabbitMQ ml.features
+    participant ML as ML Service
+    participant DB as MongoDB
+
+    Cl->>GW: HTTP request + Bearer JWT
+    GW->>GW: verify JWT, persist telemetry
+    GW->>GW: deviation risk score
+    GW-->>Cl: 200 / 401 / 403 (in-line decision)
+    GW->>MQ: publish features (best effort, non-blocking)
+    MQ->>ML: deliver one msg (prefetch=1)
+    ML->>ML: IsolationForest.decision_function
+    ML->>ML: normalise to [0,1] + label
+    ML->>DB: insert risk_scores doc
+    ML-->>MQ: ack

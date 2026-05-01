@@ -1,0 +1,16 @@
+flowchart LR
+    classDef step fill:#eef5ff,stroke:#2c5aa0,color:#0b1d33
+    classDef decide fill:#fff4e6,stroke:#c46c00,color:#3d2300
+    classDef stop fill:#fdecec,stroke:#a83232,color:#3a0e0e
+    classDef pass fill:#e8f7ee,stroke:#2f7d3a,color:#0d2912
+
+    REQ([HTTP request]):::pass --> M1[identity<br/>JWKS verify]:::step
+    M1 --> M2[telemetry<br/>persist event]:::step
+    M2 --> M3{risk<br/>compute & route}:::decide
+    M3 -- score >= 0.7 --> B1[/HTTP 403<br/>block/]:::stop
+    M3 -- 0.4 <= score < 0.7 --> B2[/HTTP 401<br/>step-up/]:::stop
+    M3 -- score < 0.4 --> M4{authZ policy<br/>match?}:::decide
+    M4 -- deny --> B3[/HTTP 403<br/>forbidden/]:::stop
+    M4 -- allow --> M5[jwtTranslation<br/>mint internal JWT]:::step
+    M5 --> M6[proxy<br/>strip + inject headers]:::step
+    M6 --> BE[(Backend)]:::pass

@@ -1,0 +1,38 @@
+graph TD
+    classDef edge fill:#eef5ff,stroke:#2c5aa0,stroke-width:1px,color:#0b1d33
+    classDef store fill:#fff4e6,stroke:#c46c00,stroke-width:1px,color:#3d2300
+    classDef ml fill:#e8f7ee,stroke:#2f7d3a,stroke-width:1px,color:#0d2912
+    classDef be fill:#fdecec,stroke:#a83232,stroke-width:1px,color:#3a0e0e
+    classDef ui fill:#f3e8ff,stroke:#6a3aa3,stroke-width:1px,color:#22082f
+
+    U([End user]):::ui
+    A([Operator / Admin]):::ui
+    UI[Admin UI]:::ui
+
+    subgraph EDGE["Zero Trust Gateway"]
+        ID[identity<br/>JWKS verify]:::edge
+        TM[telemetry]:::edge
+        RK[risk engine]:::edge
+        AZ[policy authZ]:::edge
+        TR[JWT translator]:::edge
+        PX[reverse proxy]:::edge
+    end
+
+    DB[(MongoDB<br/>telemetry, baselines,<br/>policies, risk_scores)]:::store
+    MQ((RabbitMQ<br/>queue: ml.features)):::store
+
+    BE["Protected Back-end<br/>any HTTP workload"]:::be
+
+    subgraph MLBOX["ML Service"]
+        CO[consumer]:::ml
+        IF[Isolation Forest]:::ml
+    end
+
+    U --> ID
+    A --> UI --> ID
+    ID --> TM --> RK --> AZ --> TR --> PX --> BE
+    TM --> DB
+    RK --> DB
+    AZ --> DB
+    RK -- features --> MQ
+    MQ --> CO --> IF --> DB
