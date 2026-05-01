@@ -37,3 +37,9 @@ export const fetchBaseline = (tenantId = 'default') =>
 
 export const fetchBaselineTimeseries = (tenantId = 'default', windowMs = 3600000) =>
   apiClient.get(`/admin/baseline/timeseries?tenantId=${tenantId}&windowMs=${windowMs}`)
+
+/** Rule + latest ML + fused score for one user (admin JWT). */
+export const fetchUserRiskDetail = (userId, tenantId = 'default') =>
+  apiClient.get(
+    `/admin/users/risk/detail?userId=${encodeURIComponent(userId)}&tenantId=${encodeURIComponent(tenantId)}`
+  )

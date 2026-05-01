@@ -2,6 +2,9 @@ import TelemetryModel from '../models/telemetry.model.js';
 import BaselineModel from '../models/baseline.model.js';
 import { log } from '../utils/logger.js';
 
+/** Must match `baseline.job.js` INTERVAL_MS so getBaseline reads the same doc the job writes */
+export const BASELINE_WINDOW_MS = 3600000;
+
 const std = (values, mean) => {
   if (values.length < 2) return 0;
   const variance = values.reduce((sum, v) => sum + (v - mean) ** 2, 0) / values.length;
@@ -67,14 +70,17 @@ export const computeBaseline = async (tenantId, windowMs = 3600000) => {
   return baseline;
 };
 
-export const getBaseline = async (tenantId) => {
-  const baseline = await BaselineModel.findOne({ tenantId }).sort({ createdAt: -1 }).lean();
+export const getBaseline = async (tenantId, windowMs = BASELINE_WINDOW_MS) => {
+  let baseline = await BaselineModel.findOne({ tenantId, windowMs }).sort({ createdAt: -1 }).lean();
+  if (!baseline) {
+    baseline = await BaselineModel.findOne({ tenantId }).sort({ createdAt: -1 }).lean();
+  }
   if (baseline) {
-    log(`[BASELINE] Loaded baseline for tenant ${tenantId}`);
+    log(`[BASELINE] Loaded baseline for tenant ${tenantId} windowMs=${baseline.windowMs ?? windowMs}`);
     return baseline;
   }
   log(`[BASELINE] No baseline found for tenant ${tenantId}, computing now`);
-  return computeBaseline(tenantId);
+  return computeBaseline(tenantId, windowMs);
 };
 
 export default { computeBaseline, getBaseline };

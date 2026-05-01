@@ -12,12 +12,13 @@ const bgAccents = {
   high:    'bg-red-500/10',
 }
 
-export default function MetricCard({ title, value, accent = 'default', icon }) {
+export default function MetricCard({ title, value, accent = 'default', icon: Icon }) {
+  const toneClass = accents[accent].split(' ')[1]
   return (
     <div className={`bg-gray-900 border rounded-xl p-5 flex items-center gap-4 ${accents[accent]}`}>
-      {icon && (
+      {Icon && (
         <div className={`w-11 h-11 rounded-lg flex items-center justify-center shrink-0 ${bgAccents[accent]}`}>
-          <span className={`text-xl ${accents[accent].split(' ')[1]}`}>{icon}</span>
+          <Icon className={`w-6 h-6 ${toneClass}`} aria-hidden />
         </div>
       )}
       <div>

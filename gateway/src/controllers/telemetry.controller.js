@@ -1,6 +1,8 @@
 import { getAllTelemetry, getUserTelemetry } from '../services/telemetry.service.js';
 import { getUserFeatures } from '../services/feature.service.js';
 import { calculateRisk } from '../services/risk.service.js';
+import { getLatestMLScore } from '../services/ml.service.js';
+import { getPolicy } from '../services/riskPolicy.service.js';
 import { getBaseline } from '../services/baseline.service.js';
 import TelemetryModel from '../models/telemetry.model.js';
 
@@ -90,16 +92,75 @@ export const getUsersRiskSummary = async (req, res) => {
     ]);
 
     const results = await Promise.allSettled(
-      userDocs.map(u => calculateRisk(u._id, u.tenantId || 'default').then(r => ({ ...r, lastSeen: u.lastSeen })))
+      userDocs.map(async (u) => {
+        const tenantId = u.tenantId || 'default';
+        const risk = await calculateRisk(u._id, tenantId);
+        const ml = await getLatestMLScore(u._id);
+        let finalRiskScore = risk.riskScore;
+        if (ml && ml.score !== undefined && ml.score !== null) {
+          finalRiskScore = +(0.5 * risk.riskScore + 0.5 * ml.score).toFixed(4);
+        }
+        return {
+          ...risk,
+          lastSeen: u.lastSeen,
+          mlScore: ml?.score ?? null,
+          mlLabel: ml?.label ?? null,
+          mlTimestamp: ml?.timestamp ?? null,
+          finalRiskScore
+        };
+      })
     );
 
     const users = results
       .filter(r => r.status === 'fulfilled' && !r.value.isColdStart)
       .map(r => r.value)
-      .sort((a, b) => b.riskScore - a.riskScore);
+      .sort((a, b) => (b.finalRiskScore ?? b.riskScore) - (a.finalRiskScore ?? a.riskScore));
 
     res.json({ users, total: users.length });
   } catch (err) {
     res.status(500).json({ error: 'Failed to compute users risk summary' });
+  }
+};
+
+/** Single-user rule + ML + fused scores (same fusion as gateway middleware). */
+export const getUserRiskDetail = async (req, res) => {
+  try {
+    const { userId, tenantId = 'default' } = req.query;
+    if (!userId) return res.status(400).json({ error: 'userId is required' });
+
+    const risk = await calculateRisk(userId, tenantId);
+    const ml = await getLatestMLScore(userId);
+    const policy = await getPolicy(tenantId);
+
+    let finalRiskScore = risk.riskScore;
+    if (!risk.isColdStart && ml && ml.score !== undefined && ml.score !== null) {
+      finalRiskScore = +(0.5 * risk.riskScore + 0.5 * ml.score).toFixed(4);
+    }
+
+    let finalRiskLevel = null;
+    if (!risk.isColdStart) {
+      finalRiskLevel =
+        finalRiskScore >= policy.highThreshold ? 'HIGH'
+          : finalRiskScore >= policy.mediumThreshold ? 'MEDIUM' : 'LOW';
+    }
+
+    res.json({
+      userId,
+      tenantId,
+      rule: {
+        riskScore: risk.riskScore,
+        riskLevel: risk.riskLevel,
+        breakdown: risk.breakdown,
+        isColdStart: !!risk.isColdStart,
+        reason: risk.reason,
+        warning: risk.warning,
+      },
+      ml,
+      policy: { highThreshold: policy.highThreshold, mediumThreshold: policy.mediumThreshold },
+      finalRiskScore,
+      finalRiskLevel,
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to compute user risk detail', details: err.message });
   }
 };

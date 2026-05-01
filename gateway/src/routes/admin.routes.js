@@ -6,6 +6,7 @@ import enforcementRoutes from './admin.enforcement.routes.js';
 import policyRoutes from './admin.policy.routes.js';
 import telemetryRoutes from './admin.telemetry.routes.js';
 import riskRoutes from './admin.risk.routes.js';
+import mlRoutes from './admin.ml.routes.js';
 
 const router = express.Router();
 
@@ -16,5 +17,6 @@ router.use('/config', enforcementRoutes);
 router.use('/', policyRoutes);
 router.use('/', telemetryRoutes);
 router.use('/', riskRoutes);
+router.use('/', mlRoutes);
 
 export default router;

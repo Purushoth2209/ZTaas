@@ -8,7 +8,8 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "seed:users": "node src/scripts/seed-users-telemetry.js",
-    "seed:ml-queue": "node src/scripts/seed-ml-features-queue.js"
+    "seed:ml-queue": "node src/scripts/seed-ml-features-queue.js",
+    "demo:live": "node src/scripts/demo-live-traffic.js"
   },
   "keywords": [
     "gateway",

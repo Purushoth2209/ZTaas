@@ -3,18 +3,66 @@ import {
   fetchTelemetry,
   fetchUsersRiskSummary,
   computeMetrics,
+  fetchMLScoresStats,
+  fetchMLScoresRecent,
+  fetchBaselineTimeseries,
+  fetchBaselineSnapshot,
 } from '../features/dashboard/services/dashboard.api.js'
 import MetricCard from '../features/dashboard/components/MetricCard.jsx'
 import ActivityTable from '../features/dashboard/components/ActivityTable.jsx'
 import RiskTable from '../features/dashboard/components/RiskTable.jsx'
+import MLScoresTable from '../features/dashboard/components/MLScoresTable.jsx'
+import { TrafficTrendChart, MLInsightsPie, RuleRiskBarSummary } from '../features/dashboard/components/DashboardCharts.jsx'
+import BaselineSnapshotPanel from '../features/dashboard/components/BaselineSnapshotPanel.jsx'
 import AppLayout from '../components/layout/AppLayout.jsx'
+import {
+  IconUsers,
+  IconCheckCircle,
+  IconExclamationTriangle,
+  IconXCircle,
+  IconArchiveBox,
+  IconTrendingUp,
+  IconBolt,
+  IconShield,
+} from '../components/ui/Icons.jsx'
 
 const METRIC_CONFIG = [
-  { key: 'total',  title: 'Total Users',        accent: 'default', icon: '👥' },
-  { key: 'low',    title: 'Low Risk Users',      accent: 'low',     icon: '✅' },
-  { key: 'medium', title: 'Medium Risk Users',   accent: 'medium',  icon: '⚠️' },
-  { key: 'high',   title: 'High Risk Users',     accent: 'high',    icon: '🔴' },
+  { key: 'total',  title: 'Total users (rule)',    accent: 'default', icon: IconUsers },
+  { key: 'low',    title: 'Low risk (rule)',       accent: 'low',     icon: IconCheckCircle },
+  { key: 'medium', title: 'Medium risk (rule)',    accent: 'medium',  icon: IconExclamationTriangle },
+  { key: 'high',   title: 'High risk (rule)',      accent: 'high',    icon: IconXCircle },
 ]
+
+const ML_METRIC_CONFIG = [
+  { pick: 'totalAllTime', title: 'ML records (all time)', accent: 'default', icon: IconArchiveBox },
+  { pick: 'totalInWindow', title: 'ML assessments (24h)', accent: 'medium', icon: IconTrendingUp },
+  { pick: 'anomalies', title: 'ML anomalies (24h)', accent: 'high', icon: IconBolt },
+  { pick: 'normalLabels', title: 'ML normal (24h)', accent: 'low', icon: IconShield },
+]
+
+function normalizeMlStats(raw) {
+  if (!raw) {
+    return {
+      totalAllTime: 0,
+      totalInWindow: 0,
+      anomalies: 0,
+      normalLabels: 0,
+      labelCountsInWindow: { normal: 0, anomaly: 0, other: 0 },
+    }
+  }
+  const lc = raw.labelCountsInWindow || {}
+  return {
+    totalAllTime: raw.totalAllTime ?? 0,
+    totalInWindow: raw.totalInWindow ?? 0,
+    anomalies: lc.anomaly ?? 0,
+    normalLabels: lc.normal ?? 0,
+    labelCountsInWindow: {
+      normal: lc.normal ?? 0,
+      anomaly: lc.anomaly ?? 0,
+      other: lc.other ?? 0,
+    },
+  }
+}
 
 function Spinner() {
   return (
@@ -50,6 +98,11 @@ export default function Dashboard() {
   const [telemetry, setTelemetry]     = useState([])
   const [metrics, setMetrics]         = useState({ total: 0, low: 0, medium: 0, high: 0 })
   const [topUsers, setTopUsers]       = useState([])
+  const [mlStats, setMlStats]         = useState(null)
+  const [mlRecent, setMlRecent]       = useState([])
+  const [trafficSeries, setTrafficSeries] = useState([])
+  const [baselineDoc, setBaselineDoc] = useState(null)
+  const [baselineTenant] = useState('default')
   const [loading, setLoading]         = useState(true)
   const [error, setError]             = useState('')
   const [lastUpdated, setLastUpdated] = useState(null)
@@ -66,14 +119,26 @@ export default function Dashboard() {
 
       setTelemetry(records)
       setMetrics(computed)
-      setTopUsers(userSummary.slice(0, 5))
+      setTopUsers(userSummary.slice(0, 8))
+
+      const [statsRaw, recentRows, series, baselineSnapshot] = await Promise.all([
+        fetchMLScoresStats(86400000).catch(() => null),
+        fetchMLScoresRecent(35).catch(() => []),
+        fetchBaselineTimeseries(baselineTenant, 86400000).catch(() => []),
+        fetchBaselineSnapshot(baselineTenant),
+      ])
+      setMlStats(normalizeMlStats(statsRaw))
+      setMlRecent(recentRows)
+      setTrafficSeries(series)
+      setBaselineDoc(baselineSnapshot)
+
       setLastUpdated(new Date())
     } catch (err) {
       setError(err.message || 'Failed to load dashboard data.')
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [baselineTenant])
 
   useEffect(() => { loadData() }, [loadData])
 
@@ -84,7 +149,7 @@ export default function Dashboard() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-xl font-bold text-white">Dashboard</h2>
-            <p className="text-sm text-gray-500 mt-0.5">System activity and risk overview</p>
+            <p className="text-sm text-gray-500 mt-0.5">Telemetry, rule-based risk, and ML anomaly scores</p>
           </div>
           <div className="flex items-center gap-3">
             {lastUpdated && (
@@ -109,24 +174,55 @@ export default function Dashboard() {
 
         {loading ? <Spinner /> : (
           <>
-            {/* Metric Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-              {METRIC_CONFIG.map(({ key, title, accent, icon }) => (
-                <MetricCard
-                  key={key}
-                  title={title}
-                  value={metrics[key]}
-                  accent={accent}
-                  icon={icon}
-                />
-              ))}
+            <section className="space-y-2">
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Rule-based exposure</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                {METRIC_CONFIG.map(({ key, title, accent, icon }) => (
+                  <MetricCard
+                    key={key}
+                    title={title}
+                    value={metrics[key]}
+                    accent={accent}
+                    icon={icon}
+                  />
+                ))}
+              </div>
+            </section>
+
+            <section className="space-y-2">
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">ML pipeline (risk_scores)</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                {ML_METRIC_CONFIG.map(({ pick, title, accent, icon }) => (
+                  <MetricCard
+                    key={pick}
+                    title={title}
+                    value={mlStats?.[pick] ?? 0}
+                    accent={accent}
+                    icon={icon}
+                  />
+                ))}
+              </div>
+            </section>
+
+            <section className="space-y-2">
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Stored baseline (rule engine)
+              </h3>
+              <BaselineSnapshotPanel baseline={baselineDoc} tenantId={baselineTenant} />
+            </section>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <TrafficTrendChart series={trafficSeries} />
+              <MLInsightsPie labelCounts={mlStats?.labelCountsInWindow} />
+              <RuleRiskBarSummary metrics={metrics} />
             </div>
 
-            {/* Tables */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <ActivityTable records={telemetry} />
               <RiskTable users={topUsers} />
             </div>
+
+            <MLScoresTable records={mlRecent} />
           </>
         )}
       </div>

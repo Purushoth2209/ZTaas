@@ -1,7 +1,7 @@
 import RiskPolicy from '../models/riskPolicy.model.js';
 import { log } from '../utils/logger.js';
 
-const DEFAULT_POLICY = { highThreshold: 0.7, mediumThreshold: 0.4 };
+const DEFAULT_POLICY = { highThreshold: 0.58, mediumThreshold: 0.30 };
 const cache = new Map();
 
 export const getPolicy = async (tenantId = 'default') => {
@@ -10,7 +10,13 @@ export const getPolicy = async (tenantId = 'default') => {
   try {
     const doc = await RiskPolicy.findOne({ tenantId });
     if (doc) {
-      const policy = { highThreshold: doc.highThreshold, mediumThreshold: doc.mediumThreshold };
+      let { highThreshold: high, mediumThreshold: med } = doc;
+      // Legacy UI/seed defaults (0.9 / 0.6) made MEDIUM/HIGH unreachable for typical fused scores
+      if (high >= 0.85 && med >= 0.5) {
+        high = DEFAULT_POLICY.highThreshold;
+        med = DEFAULT_POLICY.mediumThreshold;
+      }
+      const policy = { highThreshold: high, mediumThreshold: med };
       cache.set(tenantId, policy);
       return policy;
     }

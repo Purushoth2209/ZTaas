@@ -31,13 +31,23 @@ function ScoreBar({ score }) {
   )
 }
 
-const COLS = ['User', 'Tenant', 'Score', 'Level']
+const COLS = ['User', 'Tenant', 'Rule', 'ML', 'Final', 'Level']
+
+function MLLabelPill({ label }) {
+  if (!label) return <span className="text-gray-600 text-xs">—</span>
+  const isAnomaly = String(label).toLowerCase() === 'anomaly'
+  const cls = isAnomaly ? 'text-red-400 bg-red-500/10' : 'text-green-400 bg-green-500/10'
+  return <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${cls}`}>{label}</span>
+}
 
 export default function RiskTable({ users }) {
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
       <div className="px-5 py-4 border-b border-gray-800 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-white">Top Risky Users</h2>
+        <div>
+          <h2 className="text-sm font-semibold text-white">Top risky users</h2>
+          <p className="text-xs text-gray-500 mt-0.5">Rule vs stored ML score; final = 0.5×rule + 0.5×ML when ML exists</p>
+        </div>
         <span className="text-xs text-gray-500">Top {users.length}</span>
       </div>
       <div className="overflow-x-auto">
@@ -54,7 +64,7 @@ export default function RiskTable({ users }) {
           <tbody>
             {users.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-4 py-10 text-center">
+                <td colSpan={6} className="px-4 py-10 text-center">
                   <p className="text-gray-500 text-sm">No real risk data yet</p>
                   <p className="text-gray-600 text-xs mt-1">Users need recent activity for risk scores to be computed</p>
                 </td>
@@ -70,11 +80,24 @@ export default function RiskTable({ users }) {
                 <td className="px-4 py-3 text-gray-500 text-xs">
                   {u.tenantId ?? 'default'}
                 </td>
-                <td className="px-4 py-3 w-36">
+                <td className="px-4 py-3 w-28">
                   <ScoreBar score={u.riskScore} />
                 </td>
+                <td className="px-4 py-3 w-28">
+                  {u.mlScore === undefined || u.mlScore === null ? (
+                    <span className="text-gray-600 text-xs">—</span>
+                  ) : (
+                    <ScoreBar score={u.mlScore} />
+                  )}
+                </td>
+                <td className="px-4 py-3 w-28">
+                  <ScoreBar score={u.finalRiskScore ?? u.riskScore} />
+                </td>
                 <td className="px-4 py-3">
-                  <RiskBadge level={u.riskLevel} />
+                  <div className="flex flex-col gap-1">
+                    <RiskBadge level={u.riskLevel} />
+                    <MLLabelPill label={u.mlLabel} />
+                  </div>
                 </td>
               </tr>
             ))}

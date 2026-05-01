@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import AppLayout from '../components/layout/AppLayout.jsx'
-import { fetchUserTelemetry } from '../features/admin/admin.api.js'
+import { fetchUserTelemetry, fetchUserRiskDetail } from '../features/admin/admin.api.js'
 import { IconTelemetry, IconAlert, IconChevronLeft, IconChevronRight } from '../components/ui/Icons.jsx'
 
 function StatusBadge({ status }) {
@@ -38,16 +38,26 @@ export default function UserTelemetryPage() {
   const [page, setPage]       = useState(1)
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState('')
+  const [riskDetail, setRiskDetail] = useState(null)
+  const [riskError, setRiskError]   = useState('')
 
   async function search(p = 1) {
     if (!input.trim()) return
-    setLoading(true); setError('')
+    setLoading(true); setError(''); setRiskError('')
     try {
-      const data = await fetchUserTelemetry(input.trim(), p, 50)
+      const uid = input.trim()
+      const data = await fetchUserTelemetry(uid, p, 50)
       setRecords(data.records ?? [])
       setTotal(data.count ?? 0)
-      setUserId(input.trim())
+      setUserId(uid)
       setPage(p)
+      try {
+        const detail = await fetchUserRiskDetail(uid, 'default')
+        setRiskDetail(detail)
+      } catch (re) {
+        setRiskDetail(null)
+        setRiskError(re.message || 'Could not load risk snapshot')
+      }
     } catch (e) { setError(e.message) }
     finally { setLoading(false) }
   }
@@ -86,6 +96,54 @@ export default function UserTelemetryPage() {
           <div className="flex items-center gap-2.5 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-2.5 text-sm text-red-400">
             <IconAlert className="w-4 h-4 shrink-0" />
             {error}
+          </div>
+        )}
+
+        {riskError && (
+          <div className="text-xs text-amber-500/90 border border-amber-500/20 rounded-lg px-4 py-2">
+            Risk snapshot: {riskError}
+          </div>
+        )}
+
+        {userId && riskDetail && (
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-4">
+            <h3 className="text-sm font-semibold text-white">Risk snapshot — <span className="font-mono text-indigo-400">{riskDetail.userId}</span></h3>
+            <p className="text-xs text-gray-500">
+              Rule score from telemetry vs baseline; ML from latest <span className="font-mono text-gray-400">risk_scores</span> row; final = 0.5×rule + 0.5×ML when ML exists (same as gateway).
+            </p>
+            {riskDetail.rule?.isColdStart ? (
+              <p className="text-sm text-amber-400/90">Cold start: {riskDetail.rule.reason ?? 'No recent behavioral data'} — rule score {riskDetail.rule.riskScore}, level {riskDetail.rule.riskLevel}. Fusion not applied.</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3">
+                  <p className="text-[10px] uppercase text-gray-500 font-medium">Rule</p>
+                  <p className="text-xl font-bold text-white mt-1 tabular-nums">{Math.round((riskDetail.rule?.riskScore ?? 0) * 100)}%</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{riskDetail.rule?.riskLevel ?? '—'}</p>
+                </div>
+                <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3">
+                  <p className="text-[10px] uppercase text-gray-500 font-medium">ML (latest)</p>
+                  {riskDetail.ml?.score != null ? (
+                    <>
+                      <p className="text-xl font-bold text-white mt-1 tabular-nums">{Math.round(riskDetail.ml.score * 100)}%</p>
+                      <p className="text-xs text-gray-400 mt-0.5">{riskDetail.ml.label ?? '—'}</p>
+                    </>
+                  ) : (
+                    <p className="text-sm text-gray-500 mt-2">No row in risk_scores for this user yet</p>
+                  )}
+                </div>
+                <div className="bg-gray-800/50 border border-indigo-500/30 rounded-lg p-3">
+                  <p className="text-[10px] uppercase text-indigo-400/80 font-medium">Final (enforcement)</p>
+                  <p className="text-xl font-bold text-indigo-300 mt-1 tabular-nums">{Math.round((riskDetail.finalRiskScore ?? 0) * 100)}%</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{riskDetail.finalRiskLevel ?? '—'}</p>
+                </div>
+              </div>
+            )}
+            {!riskDetail.rule?.isColdStart && riskDetail.rule?.breakdown && (
+              <div className="text-xs text-gray-500 font-mono space-y-0.5">
+                <p>Breakdown — requests: {(riskDetail.rule.breakdown.requestsScore ?? 0).toFixed(3)} · failure: {(riskDetail.rule.breakdown.failureScore ?? 0).toFixed(3)} · ip: {(riskDetail.rule.breakdown.ipScore ?? 0).toFixed(3)} · latency: {(riskDetail.rule.breakdown.responseTimeScore ?? 0).toFixed(3)}</p>
+                <p>Policy thresholds — medium ≥ {(riskDetail.policy?.mediumThreshold ?? 0) * 100}% · high ≥ {(riskDetail.policy?.highThreshold ?? 0) * 100}%</p>
+              </div>
+            )}
           </div>
         )}
 
